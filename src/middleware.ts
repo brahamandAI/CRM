@@ -25,6 +25,9 @@ export async function middleware(request: NextRequest) {
     const userRole = token.role as string;
     const path = request.nextUrl.pathname;
 
+    // Extract the actual path without (dashboard)
+    const normalizedPath = path.replace(/\/\(dashboard\)/, '');
+
     const roleAccess: Record<string, string[]> = {
       '/guards': ['Admin'],
       '/clients': ['Admin'],
@@ -36,7 +39,7 @@ export async function middleware(request: NextRequest) {
 
     // Check if the current path requires specific role access
     for (const [routePath, allowedRoles] of Object.entries(roleAccess)) {
-      if (path.includes(routePath) && !allowedRoles.includes(userRole)) {
+      if (normalizedPath.startsWith(routePath) && !allowedRoles.includes(userRole)) {
         return NextResponse.redirect(new URL('/dashboard', request.url));
       }
     }
@@ -51,11 +54,6 @@ export const config = {
     '/login',
     '/register',
     '/dashboard/:path*',
-    '/guards/:path*',
-    '/clients/:path*',
-    '/audits/:path*',
-    '/incidents/:path*',
-    '/alerts/:path*',
-    '/training/:path*'
+    '/(dashboard)/:path*'
   ]
 }; 

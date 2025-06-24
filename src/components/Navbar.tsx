@@ -3,7 +3,7 @@
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { signOut, useSession } from 'next-auth/react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   HomeIcon,
   UserGroupIcon,
@@ -30,6 +30,16 @@ export default function Navbar() {
   const pathname = usePathname();
   const { data: session } = useSession();
   const [isDarkMode, setIsDarkMode] = useState(true);
+  const [activeItem, setActiveItem] = useState('');
+
+  useEffect(() => {
+    // Update active item when pathname changes
+    const currentPath = pathname || '';
+    const matchedItem = navigation.find(item => currentPath.startsWith(item.href));
+    if (matchedItem) {
+      setActiveItem(matchedItem.href);
+    }
+  }, [pathname]);
 
   const toggleDarkMode = () => {
     setIsDarkMode(!isDarkMode);
@@ -57,11 +67,12 @@ export default function Navbar() {
       <nav className="flex-1 p-4">
         <ul className="space-y-2">
           {navigation.map((item) => {
-            const isActive = pathname === item.href;
+            const isActive = activeItem === item.href;
             return (
               <li key={item.name}>
                 <Link
                   href={item.href}
+                  onClick={() => setActiveItem(item.href)}
                   className={`flex items-center space-x-3 px-4 py-2 rounded-lg transition-colors ${
                     isActive
                       ? 'bg-blue-600 text-white'
