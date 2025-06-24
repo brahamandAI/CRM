@@ -3,6 +3,12 @@
 import { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
+import ReportGenerator from '@/components/ReportGenerator';
+
+interface Client {
+  _id: string;
+  name: string;
+}
 
 interface Audit {
   _id: string;
@@ -31,6 +37,7 @@ export default function AuditsPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
   const [audits, setAudits] = useState<Audit[]>([]);
+  const [clients, setClients] = useState<Client[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [showForm, setShowForm] = useState(false);
@@ -38,10 +45,12 @@ export default function AuditsPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
   const [formError, setFormError] = useState('');
+  const [selectedAudits, setSelectedAudits] = useState<string[]>([]);
+  const [showReportGenerator, setShowReportGenerator] = useState(false);
 
   const [form, setForm] = useState({
     client: '',
-    date: '',
+    date: new Date().toISOString().split('T')[0],
     score: 0,
     remarks: '',
     status: 'Pending' as const,
@@ -53,6 +62,17 @@ export default function AuditsPage() {
       router.push('/login');
     }
   }, [status, router]);
+
+  const fetchClients = async () => {
+    try {
+      const res = await fetch('/api/clients');
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || 'Failed to fetch clients');
+      setClients(data);
+    } catch (err: any) {
+      console.error('Error fetching clients:', err.message);
+    }
+  };
 
   const fetchAudits = async () => {
     setLoading(true);
@@ -70,7 +90,10 @@ export default function AuditsPage() {
   };
 
   useEffect(() => {
-    if (session) fetchAudits();
+    if (session) {
+      fetchAudits();
+      fetchClients();
+    }
   }, [session]);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -78,19 +101,34 @@ export default function AuditsPage() {
     setActionLoading(true);
     setFormError('');
     try {
+      if (!form.client) {
+        throw new Error('Please select a client');
+      }
+
       const method = formMode === 'create' ? 'POST' : 'PUT';
       const url = formMode === 'create'
         ? '/api/audits'
         : `/api/audits/${editingId}`;
+
+      const formData = {
+        ...form,
+        date: new Date(form.date).toISOString(),
+        score: Number(form.score)
+      };
+
       const res = await fetch(url, {
         method,
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(form),
+        body: JSON.stringify(formData),
       });
+      
       const data = await res.json();
-      if (!res.ok) throw new Error(data.message || 'Failed to save audit');
+      if (!res.ok) {
+        throw new Error(data.error || data.message || 'Failed to save audit');
+      }
+      
       closeForm();
       fetchAudits();
     } catch (err: any) {
@@ -201,6 +239,37 @@ export default function AuditsPage() {
     }
   };
 
+  // Add report generation button
+  const reportButton = (
+    <button
+      onClick={() => setShowReportGenerator(true)}
+      disabled={selectedAudits.length === 0}
+      className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+    >
+      Generate Report
+    </button>
+  );
+
+  // Add report generator modal
+  const reportGeneratorModal = showReportGenerator && (
+    <ReportGenerator
+      type="audit"
+      selectedIds={selectedAudits}
+      onClose={() => setShowReportGenerator(false)}
+    />
+  );
+
+  // Add checkbox selection to the table row
+  const handleAuditSelection = (auditId: string) => {
+    setSelectedAudits(prev => {
+      if (prev.includes(auditId)) {
+        return prev.filter(id => id !== auditId);
+      } else {
+        return [...prev, auditId];
+      }
+    });
+  };
+
   if (status === 'loading' || loading) {
     return (
       <div className="flex justify-center items-center min-h-screen">
@@ -213,12 +282,15 @@ export default function AuditsPage() {
     <div className="container mx-auto px-4 py-8">
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Audits</h1>
-        <button
-          onClick={openCreate}
-          className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
-        >
-          Create Audit
-        </button>
+        <div className="space-x-4">
+          {reportButton}
+          <button
+            onClick={openCreate}
+            className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+          >
+            Create Audit
+          </button>
+        </div>
       </div>
 
       {error && (
@@ -232,6 +304,20 @@ export default function AuditsPage() {
           <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
             <thead className="bg-gray-50 dark:bg-gray-800">
               <tr>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                  <input
+                    type="checkbox"
+                    checked={selectedAudits.length === audits.length}
+                    onChange={(e) => {
+                      if (e.target.checked) {
+                        setSelectedAudits(audits.map(audit => audit._id));
+                      } else {
+                        setSelectedAudits([]);
+                      }
+                    }}
+                    className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                  />
+                </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                   Client
                 </th>
@@ -255,6 +341,14 @@ export default function AuditsPage() {
             <tbody className="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">
               {audits.map((audit) => (
                 <tr key={audit._id}>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <input
+                      type="checkbox"
+                      checked={selectedAudits.includes(audit._id)}
+                      onChange={() => handleAuditSelection(audit._id)}
+                      className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                    />
+                  </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-300">
                     {audit.client.name}
                   </td>
@@ -296,10 +390,18 @@ export default function AuditsPage() {
       {showForm && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4">
           <div className="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-2xl w-full">
-            <h2 className="text-xl font-bold mb-4 text-gray-900 dark:text-white">
-              {formMode === 'create' ? 'Create Audit' : 'Edit Audit'}
-            </h2>
-            
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-bold text-gray-900 dark:text-white">
+                {formMode === 'create' ? 'Create Audit' : 'Edit Audit'}
+              </h2>
+              <button
+                onClick={closeForm}
+                className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+              >
+                ×
+              </button>
+            </div>
+
             {formError && (
               <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
                 {formError}
@@ -309,15 +411,21 @@ export default function AuditsPage() {
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                  Client ID
+                  Client
                 </label>
-                <input
-                  type="text"
+                <select
                   value={form.client}
                   onChange={(e) => setForm({ ...form, client: e.target.value })}
                   className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600"
                   required
-                />
+                >
+                  <option value="">Select Client</option>
+                  {clients.map((client) => (
+                    <option key={client._id} value={client._id}>
+                      {client.name}
+                    </option>
+                  ))}
+                </select>
               </div>
 
               <div>
@@ -342,7 +450,7 @@ export default function AuditsPage() {
                   min="0"
                   max="100"
                   value={form.score}
-                  onChange={(e) => setForm({ ...form, score: parseInt(e.target.value) })}
+                  onChange={(e) => setForm({ ...form, score: parseInt(e.target.value) || 0 })}
                   className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600"
                   required
                 />
@@ -367,8 +475,9 @@ export default function AuditsPage() {
                 </label>
                 <select
                   value={form.status}
-                  onChange={(e) => setForm({ ...form, status: e.target.value as 'Pending' | 'Completed' | 'Failed' })}
+                  onChange={(e) => setForm({ ...form, status: e.target.value as any })}
                   className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600"
+                  required
                 >
                   <option value="Pending">Pending</option>
                   <option value="Completed">Completed</option>
@@ -377,25 +486,16 @@ export default function AuditsPage() {
               </div>
 
               <div>
-                <div className="flex justify-between items-center mb-2">
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                    Checklist
-                  </label>
-                  <button
-                    type="button"
-                    onClick={addChecklistItem}
-                    className="text-sm text-blue-600 hover:text-blue-500"
-                  >
-                    + Add Item
-                  </button>
-                </div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Checklist
+                </label>
                 {form.checklist.map((item, index) => (
                   <div key={index} className="flex gap-2 mb-2">
                     <input
                       type="text"
                       value={item.item}
                       onChange={(e) => updateChecklistItem(index, 'item', e.target.value)}
-                      placeholder="Checklist item"
+                      placeholder="Item description"
                       className="flex-1 rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600"
                     />
                     <select
@@ -407,36 +507,36 @@ export default function AuditsPage() {
                       <option value="Fail">Fail</option>
                       <option value="NA">N/A</option>
                     </select>
-                    <input
-                      type="text"
-                      value={item.comments || ''}
-                      onChange={(e) => updateChecklistItem(index, 'comments', e.target.value)}
-                      placeholder="Comments"
-                      className="flex-1 rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600"
-                    />
                     <button
                       type="button"
                       onClick={() => removeChecklistItem(index)}
-                      className="text-red-600 hover:text-red-500"
+                      className="px-2 py-1 text-red-600 hover:text-red-800"
                     >
-                      Remove
+                      ×
                     </button>
                   </div>
                 ))}
+                <button
+                  type="button"
+                  onClick={addChecklistItem}
+                  className="mt-2 text-blue-600 hover:text-blue-800"
+                >
+                  + Add Item
+                </button>
               </div>
 
-              <div className="flex justify-end space-x-3 mt-6">
+              <div className="flex justify-end space-x-4">
                 <button
                   type="button"
                   onClick={closeForm}
-                  className="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
+                  className="px-4 py-2 text-gray-700 bg-gray-200 rounded-lg hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={actionLoading}
-                  className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
                 >
                   {actionLoading ? 'Saving...' : formMode === 'create' ? 'Create' : 'Update'}
                 </button>
@@ -445,6 +545,7 @@ export default function AuditsPage() {
           </div>
         </div>
       )}
+      {reportGeneratorModal}
     </div>
   );
 } 

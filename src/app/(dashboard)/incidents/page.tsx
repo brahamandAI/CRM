@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
+import ReportGenerator from '@/components/ReportGenerator';
 
 interface Incident {
   _id: string;
@@ -40,6 +41,8 @@ export default function IncidentsPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
   const [formError, setFormError] = useState('');
+  const [selectedIncidents, setSelectedIncidents] = useState<string[]>([]);
+  const [showReportGenerator, setShowReportGenerator] = useState(false);
 
   const [form, setForm] = useState({
     type: '',
@@ -200,6 +203,24 @@ export default function IncidentsPage() {
         return 'bg-gray-100 text-gray-800';
     }
   };
+
+  const reportButton = (
+    <button
+      onClick={() => setShowReportGenerator(true)}
+      disabled={selectedIncidents.length === 0}
+      className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+    >
+      Generate Report
+    </button>
+  );
+
+  const reportGeneratorModal = showReportGenerator && (
+    <ReportGenerator
+      type="incident"
+      selectedIds={selectedIncidents}
+      onClose={() => setShowReportGenerator(false)}
+    />
+  );
 
   if (status === 'loading' || loading) {
     return (
@@ -463,6 +484,9 @@ export default function IncidentsPage() {
           </div>
         </div>
       )}
+
+      {reportButton}
+      {reportGeneratorModal}
     </div>
   );
 } 
