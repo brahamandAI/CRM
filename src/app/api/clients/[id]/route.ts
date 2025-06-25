@@ -4,22 +4,15 @@ import { authOptions } from '@/lib/auth';
 import dbConnect from '@/lib/db';
 import Client from '@/lib/models/Client';
 
-interface RouteParams {
-  params: {
-    id: string;
-  };
-}
-
-// GET /api/clients/[id] - Get a client by ID
-export async function GET(request: Request, { params }: RouteParams) {
+// GET /api/clients/[id] - Get a single client
+export async function GET(
+  request: Request,
+  { params }: { params: { id: string } }
+) {
   try {
     const session = await getServerSession(authOptions);
     if (!session) {
       return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
-    }
-
-    if (!['Admin', 'Client'].includes(session.user.role)) {
-      return NextResponse.json({ message: 'Forbidden' }, { status: 403 });
     }
 
     await dbConnect();
@@ -29,7 +22,13 @@ export async function GET(request: Request, { params }: RouteParams) {
       return NextResponse.json({ message: 'Client not found' }, { status: 404 });
     }
 
-    return NextResponse.json(client);
+    return NextResponse.json({
+      id: client._id.toString(),
+      name: client.name,
+      contact: client.contactPhone,
+      contractPeriod: `${new Date(client.contractStart).getFullYear()}-${new Date(client.contractEnd).getFullYear()}`,
+      status: client.status === 'Expired' ? 'Inactive' : 'Active'
+    });
   } catch (error: any) {
     return NextResponse.json(
       { message: 'Error fetching client', error: error.message },
@@ -39,7 +38,10 @@ export async function GET(request: Request, { params }: RouteParams) {
 }
 
 // PUT /api/clients/[id] - Update a client
-export async function PUT(request: Request, { params }: RouteParams) {
+export async function PUT(
+  request: Request,
+  { params }: { params: { id: string } }
+) {
   try {
     const session = await getServerSession(authOptions);
     if (!session) {
@@ -53,12 +55,18 @@ export async function PUT(request: Request, { params }: RouteParams) {
     await dbConnect();
     const body = await request.json();
     const client = await Client.findByIdAndUpdate(params.id, body, { new: true });
-    
+
     if (!client) {
       return NextResponse.json({ message: 'Client not found' }, { status: 404 });
     }
 
-    return NextResponse.json(client);
+    return NextResponse.json({
+      id: client._id.toString(),
+      name: client.name,
+      contact: client.contactPhone,
+      contractPeriod: `${new Date(client.contractStart).getFullYear()}-${new Date(client.contractEnd).getFullYear()}`,
+      status: client.status === 'Expired' ? 'Inactive' : 'Active'
+    });
   } catch (error: any) {
     return NextResponse.json(
       { message: 'Error updating client', error: error.message },
@@ -68,7 +76,10 @@ export async function PUT(request: Request, { params }: RouteParams) {
 }
 
 // DELETE /api/clients/[id] - Delete a client
-export async function DELETE(request: Request, { params }: RouteParams) {
+export async function DELETE(
+  request: Request,
+  { params }: { params: { id: string } }
+) {
   try {
     const session = await getServerSession(authOptions);
     if (!session) {
@@ -81,16 +92,16 @@ export async function DELETE(request: Request, { params }: RouteParams) {
 
     await dbConnect();
     const client = await Client.findByIdAndDelete(params.id);
-    
+
     if (!client) {
       return NextResponse.json({ message: 'Client not found' }, { status: 404 });
     }
 
-    return NextResponse.json({ message: 'Client deleted' });
+    return NextResponse.json({ message: 'Client deleted successfully' });
   } catch (error: any) {
     return NextResponse.json(
       { message: 'Error deleting client', error: error.message },
-      { status: 500 }
+      { status: 400 }
     );
   }
 } 

@@ -13,8 +13,18 @@ export async function GET() {
     }
 
     await dbConnect();
-    const clients = await Client.find().select('name contact contractPeriod status');
-    return NextResponse.json(clients);
+    const clients = await Client.find().select('name contactPerson contactPhone contractStart contractEnd status');
+    
+    // Transform the data to match the frontend interface
+    const transformedClients = clients.map(client => ({
+      id: client._id.toString(),
+      name: client.name,
+      contact: client.contactPhone,
+      contractPeriod: `${new Date(client.contractStart).getFullYear()}-${new Date(client.contractEnd).getFullYear()}`,
+      status: client.status === 'Expired' ? 'Inactive' : 'Active'
+    }));
+
+    return NextResponse.json(transformedClients);
   } catch (error: any) {
     return NextResponse.json(
       { message: 'Error fetching clients', error: error.message },
@@ -40,7 +50,13 @@ export async function POST(request: Request) {
     const client = new Client(body);
     await client.save();
     
-    return NextResponse.json(client, { status: 201 });
+    return NextResponse.json({
+      id: client._id.toString(),
+      name: client.name,
+      contact: client.contactPhone,
+      contractPeriod: `${new Date(client.contractStart).getFullYear()}-${new Date(client.contractEnd).getFullYear()}`,
+      status: client.status === 'Expired' ? 'Inactive' : 'Active'
+    }, { status: 201 });
   } catch (error: any) {
     return NextResponse.json(
       { message: 'Error creating client', error: error.message },
