@@ -5,46 +5,119 @@ export interface IAlert extends Document {
   description: string;
   type: 'Emergency' | 'Security' | 'Maintenance' | 'Information';
   priority: 'High' | 'Medium' | 'Low';
-  status: 'Active' | 'Resolved' | 'Investigating' | 'Dismissed';
+  status: 'Active' | 'Acknowledged' | 'Resolved';
   location: string;
-  reportedBy: string;
-  assignedTo?: string;
-  actions: string[];
-  notifyViaEmail: boolean;
-  notifyViaSMS: boolean;
-  notificationEmail?: string;
-  notificationPhone?: string;
-  user: mongoose.Types.ObjectId;
   client: mongoose.Types.ObjectId;
-  guard: mongoose.Types.ObjectId;
-  isRead: boolean;
-  resolvedAt?: Date;
+  guard?: mongoose.Types.ObjectId;
+  reportedBy: mongoose.Types.ObjectId;
+  assignedTo?: mongoose.Types.ObjectId;
+  notificationSettings: {
+    email: boolean;
+    sms: boolean;
+    recipients: string[];
+  };
+  acknowledgement?: {
+    by: mongoose.Types.ObjectId;
+    at: Date;
+    notes: string;
+  };
+  resolution?: {
+    by: mongoose.Types.ObjectId;
+    at: Date;
+    notes: string;
+  };
   createdAt: Date;
   updatedAt: Date;
 }
 
 const AlertSchema = new mongoose.Schema({
-  title: { type: String, required: true },
-  description: { type: String, required: true },
-  type: { type: String, required: true, enum: ['Emergency', 'Security', 'Maintenance', 'Information'] },
-  priority: { type: String, required: true, enum: ['High', 'Medium', 'Low'] },
-  status: { type: String, required: true, enum: ['Active', 'Resolved', 'Investigating', 'Dismissed'] },
-  location: { type: String, required: true },
-  reportedBy: { type: String, required: true },
-  assignedTo: { type: String },
-  actions: [String],
-  notifyViaEmail: { type: Boolean, default: true },
-  notifyViaSMS: { type: Boolean, default: false },
-  notificationEmail: { type: String },
-  notificationPhone: { type: String },
-  user: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
-  client: { type: mongoose.Schema.Types.ObjectId, ref: 'Client' },
-  guard: { type: mongoose.Schema.Types.ObjectId, ref: 'Guard' },
-  isRead: { type: Boolean, default: false },
-  resolvedAt: { type: Date },
-}, { timestamps: true });
+  title: { 
+    type: String, 
+    required: true 
+  },
+  description: { 
+    type: String, 
+    required: true 
+  },
+  type: { 
+    type: String, 
+    enum: ['Emergency', 'Security', 'Maintenance', 'Information'],
+    required: true 
+  },
+  priority: { 
+    type: String, 
+    enum: ['High', 'Medium', 'Low'],
+    required: true 
+  },
+  status: { 
+    type: String, 
+    enum: ['Active', 'Acknowledged', 'Resolved'],
+    default: 'Active'
+  },
+  location: { 
+    type: String, 
+    required: true 
+  },
+  client: { 
+    type: mongoose.Schema.Types.ObjectId, 
+    ref: 'Client',
+    required: true 
+  },
+  guard: { 
+    type: mongoose.Schema.Types.ObjectId, 
+    ref: 'Guard'
+  },
+  reportedBy: { 
+    type: mongoose.Schema.Types.ObjectId, 
+    ref: 'User',
+    required: true 
+  },
+  assignedTo: { 
+    type: mongoose.Schema.Types.ObjectId, 
+    ref: 'User'
+  },
+  notificationSettings: {
+    email: { 
+      type: Boolean, 
+      default: true 
+    },
+    sms: { 
+      type: Boolean, 
+      default: false 
+    },
+    recipients: [{ 
+      type: String 
+    }]
+  },
+  acknowledgement: {
+    by: { 
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User'
+    },
+    at: { type: Date },
+    notes: { type: String }
+  },
+  resolution: {
+    by: { 
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User'
+    },
+    at: { type: Date },
+    notes: { type: String }
+  }
+}, { 
+  timestamps: true 
+});
 
-// Delete the model if it exists to prevent OverwriteModelError
+// Indexes for better query performance
+AlertSchema.index({ title: 1 });
+AlertSchema.index({ type: 1 });
+AlertSchema.index({ priority: 1 });
+AlertSchema.index({ status: 1 });
+AlertSchema.index({ client: 1 });
+AlertSchema.index({ guard: 1 });
+AlertSchema.index({ createdAt: -1 });
+
 const Alert = (mongoose.models.Alert as Model<IAlert>) || mongoose.model<IAlert>('Alert', AlertSchema);
 
 export default Alert; 

@@ -1,60 +1,108 @@
 import mongoose, { Document, Model } from 'mongoose';
 
-interface GPS {
-  lat: number;
-  lng: number;
-}
-
-interface Shift {
-  date: Date;
-  startTime: string;
-  endTime: string;
-  location?: string;
-  checkedIn: boolean;
-  checkedOut: boolean;
-  gps?: GPS;
-}
-
 export interface IGuard extends Document {
+  userId: mongoose.Types.ObjectId;
   name: string;
   email: string;
   phone: string;
-  address?: string;
-  photo?: string;
-  assignedClient?: mongoose.Types.ObjectId;
-  shifts: Shift[];
-  certifications: string[];
-  status: 'Active' | 'Inactive';
+  address: string;
+  nationalId: string;
+  licenseNumber: string;
+  licenseExpiry: Date;
+  status: 'Active' | 'Inactive' | 'On Leave';
+  currentAssignment?: {
+    clientId: mongoose.Types.ObjectId;
+    startDate: Date;
+    endDate?: Date;
+    shift: 'Day' | 'Night' | 'Rotating';
+  };
+  certifications: Array<{
+    name: string;
+    issuedDate: Date;
+    expiryDate: Date;
+  }>;
+  incidents?: mongoose.Types.ObjectId[];
   createdAt: Date;
   updatedAt: Date;
 }
 
-const ShiftSchema = new mongoose.Schema({
-  date: { type: Date, required: true },
-  startTime: { type: String, required: true },
-  endTime: { type: String, required: true },
-  location: { type: String },
-  checkedIn: { type: Boolean, default: false },
-  checkedOut: { type: Boolean, default: false },
-  gps: {
-    lat: { type: Number },
-    lng: { type: Number }
-  }
+const GuardSchema = new mongoose.Schema({
+  userId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    required: true,
+    unique: true
+  },
+  name: { 
+    type: String, 
+    required: true 
+  },
+  email: { 
+    type: String, 
+    required: true, 
+    unique: true,
+    lowercase: true 
+  },
+  phone: { 
+    type: String, 
+    required: true 
+  },
+  address: { 
+    type: String, 
+    required: true 
+  },
+  nationalId: { 
+    type: String, 
+    required: true, 
+    unique: true 
+  },
+  licenseNumber: { 
+    type: String, 
+    required: true, 
+    unique: true 
+  },
+  licenseExpiry: { 
+    type: Date, 
+    required: true 
+  },
+  status: { 
+    type: String, 
+    enum: ['Active', 'Inactive', 'On Leave'],
+    default: 'Active'
+  },
+  currentAssignment: {
+    clientId: { 
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Client'
+    },
+    startDate: { type: Date },
+    endDate: { type: Date },
+    shift: { 
+      type: String,
+      enum: ['Day', 'Night', 'Rotating']
+    }
+  },
+  certifications: [{
+    name: { type: String, required: true },
+    issuedDate: { type: Date, required: true },
+    expiryDate: { type: Date, required: true }
+  }],
+  incidents: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Incident'
+  }]
+}, { 
+  timestamps: true 
 });
 
-const GuardSchema = new mongoose.Schema({
-  name: { type: String, required: true },
-  email: { type: String, required: true, unique: true },
-  phone: { type: String, required: true },
-  address: { type: String },
-  photo: { type: String }, // URL or file path
-  assignedClient: { type: mongoose.Schema.Types.ObjectId, ref: 'Client' },
-  shifts: [ShiftSchema],
-  certifications: [{ type: String }],
-  status: { type: String, enum: ['Active', 'Inactive'], default: 'Active' },
-}, { timestamps: true });
+// Indexes for better query performance
+GuardSchema.index({ name: 1 });
+GuardSchema.index({ email: 1 }, { unique: true });
+GuardSchema.index({ nationalId: 1 }, { unique: true });
+GuardSchema.index({ licenseNumber: 1 }, { unique: true });
+GuardSchema.index({ status: 1 });
+GuardSchema.index({ 'currentAssignment.clientId': 1 });
 
-// Delete the model if it exists to prevent OverwriteModelError
 const Guard = (mongoose.models.Guard as Model<IGuard>) || mongoose.model<IGuard>('Guard', GuardSchema);
 
 export default Guard; 

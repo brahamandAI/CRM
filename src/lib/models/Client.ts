@@ -2,31 +2,78 @@ import mongoose, { Document, Model } from 'mongoose';
 
 export interface IClient extends Document {
   name: string;
+  contact: string;
+  email: string;
+  phone: string;
   address: string;
-  contactPerson: string;
-  contactEmail: string;
-  contactPhone: string;
-  contractStart: Date;
-  contractEnd: Date;
-  contractFile?: string;
-  status: 'Active' | 'Expired';
+  contractStartDate: Date;
+  contractEndDate: Date;
+  status: 'Active' | 'Inactive' | 'Pending';
+  assignedGuards: mongoose.Types.ObjectId[];
+  services: string[];
+  notes?: string;
   createdAt: Date;
   updatedAt: Date;
 }
 
 const ClientSchema = new mongoose.Schema({
-  name: { type: String, required: true },
-  address: { type: String, required: true },
-  contactPerson: { type: String, required: true },
-  contactEmail: { type: String, required: true },
-  contactPhone: { type: String, required: true },
-  contractStart: { type: Date, required: true },
-  contractEnd: { type: Date, required: true },
-  contractFile: { type: String }, // URL or file path
-  status: { type: String, enum: ['Active', 'Expired'], default: 'Active' },
-}, { timestamps: true });
+  name: { 
+    type: String, 
+    required: true,
+    trim: true 
+  },
+  contact: { 
+    type: String, 
+    required: true 
+  },
+  email: { 
+    type: String, 
+    required: true, 
+    unique: true,
+    trim: true,
+    lowercase: true
+  },
+  phone: { 
+    type: String, 
+    required: true 
+  },
+  address: { 
+    type: String, 
+    required: true 
+  },
+  contractStartDate: { 
+    type: Date, 
+    required: true 
+  },
+  contractEndDate: { 
+    type: Date, 
+    required: true 
+  },
+  status: { 
+    type: String, 
+    enum: ['Active', 'Inactive', 'Pending'],
+    default: 'Active'
+  },
+  assignedGuards: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Guard'
+  }],
+  services: [{
+    type: String,
+    required: true
+  }],
+  notes: { 
+    type: String 
+  }
+}, { 
+  timestamps: true 
+});
 
-// Delete the model if it exists to prevent OverwriteModelError
+// Indexes for better query performance
+ClientSchema.index({ name: 1 });
+ClientSchema.index({ email: 1 }, { unique: true });
+ClientSchema.index({ status: 1 });
+
 const Client = (mongoose.models.Client as Model<IClient>) || mongoose.model<IClient>('Client', ClientSchema);
 
 export default Client; 
