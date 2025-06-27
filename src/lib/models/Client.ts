@@ -18,7 +18,7 @@ const ClientSchema = new mongoose.Schema({
   name: { type: String, required: true },
   address: { type: String, required: true },
   contactPerson: { type: String, required: true },
-  contactEmail: { type: String, required: true },
+  contactEmail: { type: String, required: true, unique: true },
   contactPhone: { type: String, required: true },
   contractStart: { type: Date, required: true },
   contractEnd: { type: Date, required: true },
