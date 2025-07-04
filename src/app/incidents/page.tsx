@@ -36,23 +36,31 @@ export default function IncidentsPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
   const [formError, setFormError] = useState('');
+  const [guards, setGuards] = useState<{ _id: string; name: string }[]>([]);
+  const [clients, setClients] = useState<{ id: string; name: string }[]>([]);
 
   const [form, setForm] = useState<{
     guard: string;
     client: string;
     description: string;
     date: string;
+    type: string;
+    location: string;
+    severity: 'Low' | 'Medium' | 'High' | 'Critical';
     images: string[];
     gps?: { lat: number; lng: number };
-    status: 'Open' | 'Closed';
+    status: 'Active' | 'Resolved' | 'Under Investigation';
     escalationLevel?: string;
   }>({
     guard: '',
     client: '',
     description: '',
     date: new Date().toISOString().split('T')[0],
+    type: '',
+    location: '',
+    severity: 'Low',
     images: [],
-    status: 'Open',
+    status: 'Active',
   });
 
   useEffect(() => {
@@ -60,6 +68,17 @@ export default function IncidentsPage() {
       router.push('/login');
     }
   }, [status, router]);
+
+  useEffect(() => {
+    // Fetch guards
+    fetch('/api/guards')
+      .then(res => res.json())
+      .then(data => setGuards(data));
+    // Fetch clients
+    fetch('/api/clients')
+      .then(res => res.json())
+      .then(data => setClients(data));
+  }, []);
 
   const fetchIncidents = async () => {
     setLoading(true);
@@ -130,8 +149,11 @@ export default function IncidentsPage() {
       client: '',
       description: '',
       date: new Date().toISOString().split('T')[0],
+      type: '',
+      location: '',
+      severity: 'Low',
       images: [],
-      status: 'Open',
+      status: 'Active',
     });
     setFormMode('create');
     setShowForm(true);
@@ -146,7 +168,15 @@ export default function IncidentsPage() {
       date: new Date(incident.date).toISOString().split('T')[0],
       images: incident.images,
       gps: incident.gps,
-      status: incident.status,
+      type: (incident as any).type || '',
+      location: (incident as any).location || '',
+      severity: ((incident as any).severity as 'Low' | 'Medium' | 'High' | 'Critical') || 'Low',
+      status:
+        incident.status === 'Open'
+          ? 'Active'
+          : incident.status === 'Closed'
+          ? 'Resolved'
+          : (incident.status as 'Active' | 'Resolved' | 'Under Investigation'),
       escalationLevel: incident.escalationLevel,
     });
     setFormMode('edit');
@@ -161,8 +191,11 @@ export default function IncidentsPage() {
       client: '',
       description: '',
       date: new Date().toISOString().split('T')[0],
+      type: '',
+      location: '',
+      severity: 'Low',
       images: [],
-      status: 'Open',
+      status: 'Active',
     });
     setEditingId(null);
     setFormError('');
@@ -221,9 +254,9 @@ export default function IncidentsPage() {
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">{incident.guard.name}</td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">{incident.client.name}</td>
                   <td className="px-6 py-4 text-sm text-gray-900 dark:text-gray-100">
-                    {incident.description.length > 100
-                      ? `${incident.description.substring(0, 100)}...`
-                      : incident.description}
+                    {(incident.description?.length ?? 0) > 100
+                      ? `${incident.description?.substring(0, 100)}...`
+                      : incident.description || ''}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm">
                     <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
@@ -273,6 +306,74 @@ export default function IncidentsPage() {
             )}
 
             <form onSubmit={handleSubmit} className="space-y-4">
+              {/* Guard Select */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Guard</label>
+                <select
+                  value={form.guard}
+                  onChange={e => setForm({ ...form, guard: e.target.value })}
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600"
+                  required
+                >
+                  <option value="">Select Guard</option>
+                  {guards.map(g => (
+                    <option key={g._id} value={g._id}>{g.name}</option>
+                  ))}
+                </select>
+              </div>
+              {/* Client Select */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Client</label>
+                <select
+                  value={form.client}
+                  onChange={e => setForm({ ...form, client: e.target.value })}
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600"
+                  required
+                >
+                  <option value="">Select Client</option>
+                  {clients.map(c => (
+                    <option key={c.id} value={c.id}>{c.name}</option>
+                  ))}
+                </select>
+              </div>
+              {/* Type Input */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Type</label>
+                <input
+                  type="text"
+                  value={form.type}
+                  onChange={e => setForm({ ...form, type: e.target.value })}
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600"
+                  required
+                />
+              </div>
+              {/* Location Input */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Location</label>
+                <input
+                  type="text"
+                  value={form.location}
+                  onChange={e => setForm({ ...form, location: e.target.value })}
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600"
+                  required
+                />
+              </div>
+              {/* Severity Select */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Severity</label>
+                <select
+                  value={form.severity}
+                  onChange={e => setForm({ ...form, severity: e.target.value as 'Low' | 'Medium' | 'High' | 'Critical' })}
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600"
+                  required
+                >
+                  <option value="Low">Low</option>
+                  <option value="Medium">Medium</option>
+                  <option value="High">High</option>
+                  <option value="Critical">Critical</option>
+                </select>
+              </div>
+              {/* Description */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Description</label>
                 <textarea
@@ -283,7 +384,7 @@ export default function IncidentsPage() {
                   required
                 />
               </div>
-
+              {/* Date */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Date</label>
                 <input
@@ -294,19 +395,21 @@ export default function IncidentsPage() {
                   required
                 />
               </div>
-
+              {/* Status Select */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Status</label>
                 <select
                   value={form.status}
-                  onChange={(e) => setForm({ ...form, status: e.target.value as 'Open' | 'Closed' })}
+                  onChange={e => setForm({ ...form, status: e.target.value as 'Active' | 'Resolved' | 'Under Investigation' })}
                   className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600"
+                  required
                 >
-                  <option value="Open">Open</option>
-                  <option value="Closed">Closed</option>
+                  <option value="Active">Active</option>
+                  <option value="Resolved">Resolved</option>
+                  <option value="Under Investigation">Under Investigation</option>
                 </select>
               </div>
-
+              {/* Escalation Level */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Escalation Level</label>
                 <input
@@ -316,7 +419,6 @@ export default function IncidentsPage() {
                   className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600"
                 />
               </div>
-
               <div className="flex justify-end space-x-3 mt-6">
                 <button
                   type="button"

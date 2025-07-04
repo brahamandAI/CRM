@@ -31,6 +31,11 @@ interface Guard {
   }>;
 }
 
+interface ClientOption {
+  _id: string;
+  name: string;
+}
+
 export default function GuardsPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
@@ -42,6 +47,7 @@ export default function GuardsPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
   const [formError, setFormError] = useState('');
+  const [clients, setClients] = useState<ClientOption[]>([]);
 
   const [form, setForm] = useState<{
     name: string;
@@ -88,6 +94,17 @@ export default function GuardsPage() {
     if (session) fetchGuards();
   }, [session]);
 
+  useEffect(() => {
+    const fetchClients = async () => {
+      try {
+        const res = await fetch('/api/clients');
+        const data = await res.json();
+        if (res.ok) setClients(data);
+      } catch {}
+    };
+    fetchClients();
+  }, []);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setActionLoading(true);
@@ -97,12 +114,21 @@ export default function GuardsPage() {
       const url = formMode === 'create'
         ? '/api/guards'
         : `/api/guards/${editingId}`;
+      const payload = { ...form };
+      // Fix: If assignedClient is a name, convert it to _id
+      if (payload.assignedClient && payload.assignedClient.length && payload.assignedClient.length !== 24) {
+        const found = clients.find(c => c.name === payload.assignedClient);
+        if (found) payload.assignedClient = found._id;
+      }
+      if (!payload.assignedClient) {
+        delete payload.assignedClient;
+      }
       const res = await fetch(url, {
         method,
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(form),
+        body: JSON.stringify(payload),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || 'Failed to save guard');
@@ -331,6 +357,20 @@ export default function GuardsPage() {
                 >
                   <option value="Active">Active</option>
                   <option value="Inactive">Inactive</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Assigned Client</label>
+                <select
+                  value={form.assignedClient || ''}
+                  onChange={e => setForm({ ...form, assignedClient: e.target.value })}
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600"
+                >
+                  <option value="">Unassigned</option>
+                  {clients.map((client) => (
+                    <option key={client._id} value={client._id}>{client.name}</option>
+                  ))}
                 </select>
               </div>
 

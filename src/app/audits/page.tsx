@@ -33,6 +33,8 @@ export default function AuditsPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
   const [formError, setFormError] = useState('');
+  const [supervisors, setSupervisors] = useState<{ _id: string; name: string }[]>([]);
+  const [clients, setClients] = useState<{ id: string; name: string }[]>([]);
 
   const [form, setForm] = useState<{
     supervisor: string;
@@ -43,6 +45,7 @@ export default function AuditsPage() {
     findings?: string;
     actions?: string;
     attachments: string[];
+    remarks: string;
   }>({
     supervisor: '',
     client: '',
@@ -52,6 +55,7 @@ export default function AuditsPage() {
     findings: '',
     actions: '',
     attachments: [],
+    remarks: '',
   });
 
   useEffect(() => {
@@ -78,6 +82,17 @@ export default function AuditsPage() {
   useEffect(() => {
     if (session) fetchAudits();
   }, [session]);
+
+  useEffect(() => {
+    // Fetch supervisors (using guards as fallback)
+    fetch('/api/guards')
+      .then(res => res.json())
+      .then(data => setSupervisors(data));
+    // Fetch clients
+    fetch('/api/clients')
+      .then(res => res.json())
+      .then(data => setClients(data));
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -133,6 +148,7 @@ export default function AuditsPage() {
       findings: '',
       actions: '',
       attachments: [],
+      remarks: '',
     });
     setFormMode('create');
     setShowForm(true);
@@ -149,6 +165,7 @@ export default function AuditsPage() {
       findings: audit.findings,
       actions: audit.actions,
       attachments: audit.attachments,
+      remarks: (audit as any).remarks || '',
     });
     setFormMode('edit');
     setShowForm(true);
@@ -166,6 +183,7 @@ export default function AuditsPage() {
       findings: '',
       actions: '',
       attachments: [],
+      remarks: '',
     });
     setEditingId(null);
     setFormError('');
@@ -221,8 +239,8 @@ export default function AuditsPage() {
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">
                     {new Date(audit.date).toLocaleDateString()}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">{audit.supervisor.name}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">{audit.client.name}</td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">{audit.supervisor?.name || 'N/A'}</td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">{audit.client?.name || 'N/A'}</td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">{audit.score || 'N/A'}</td>
                   <td className="px-6 py-4 text-sm text-gray-900 dark:text-gray-100">
                     {audit.findings
@@ -270,6 +288,48 @@ export default function AuditsPage() {
             )}
 
             <form onSubmit={handleSubmit} className="space-y-4">
+              {/* Supervisor Select */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Supervisor</label>
+                <select
+                  value={form.supervisor}
+                  onChange={e => setForm({ ...form, supervisor: e.target.value })}
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600"
+                  required
+                >
+                  <option value="">Select Supervisor</option>
+                  {supervisors.map(s => (
+                    <option key={s._id} value={s._id}>{s.name}</option>
+                  ))}
+                </select>
+              </div>
+              {/* Client Select */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Client</label>
+                <select
+                  value={form.client}
+                  onChange={e => setForm({ ...form, client: e.target.value })}
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600"
+                  required
+                >
+                  <option value="">Select Client</option>
+                  {clients.map(c => (
+                    <option key={c.id} value={c.id}>{c.name}</option>
+                  ))}
+                </select>
+              </div>
+              {/* Remarks Input */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Remarks</label>
+                <textarea
+                  value={form.remarks}
+                  onChange={e => setForm({ ...form, remarks: e.target.value })}
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600"
+                  rows={3}
+                  required
+                />
+              </div>
+              {/* Date Input */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Date</label>
                 <input

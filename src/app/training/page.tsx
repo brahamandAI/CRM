@@ -28,6 +28,7 @@ export default function TrainingPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
   const [formError, setFormError] = useState('');
+  const [guards, setGuards] = useState<{ _id: string; name: string }[]>([]);
 
   const [form, setForm] = useState<{
     guard: string;
@@ -69,6 +70,13 @@ export default function TrainingPage() {
   useEffect(() => {
     if (session) fetchTrainings();
   }, [session]);
+
+  useEffect(() => {
+    // Fetch guards for dropdown
+    fetch('/api/guards')
+      .then(res => res.json())
+      .then(data => setGuards(data));
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -257,6 +265,22 @@ export default function TrainingPage() {
             )}
 
             <form onSubmit={handleSubmit} className="space-y-4">
+              {/* Guard Select */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Guard</label>
+                <select
+                  value={form.guard}
+                  onChange={e => setForm({ ...form, guard: e.target.value })}
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600"
+                  required
+                >
+                  <option value="">Select Guard</option>
+                  {guards.map(g => (
+                    <option key={g._id} value={g._id}>{g.name}</option>
+                  ))}
+                </select>
+              </div>
+              {/* Certification Input */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Certification</label>
                 <input
